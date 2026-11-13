@@ -33,6 +33,27 @@ class WebOfTrustScoreTests(unittest.TestCase):
 
         self.assertEqual(wot_score(candidate, {seed_a, seed_b}, follows_map), 0.5)
 
+    def test_candidate_scores_are_sorted_highest_first_with_stable_ties(self):
+        from oracle import score_candidates
+
+        seed_a = "a" * 64
+        seed_b = "b" * 64
+        candidate_a = "c" * 64
+        candidate_b = "d" * 64
+
+        scored = score_candidates(
+            {seed_a, seed_b},
+            {
+                seed_a: {candidate_a, candidate_b},
+                seed_b: {candidate_a},
+            },
+        )
+
+        self.assertEqual(list(scored.items()), [
+            (candidate_a, 1.0),
+            (candidate_b, 0.5),
+        ])
+
     def test_empty_seed_set_returns_zero(self):
         self.assertEqual(wot_score("d" * 64, set(), {}), 0)
 
