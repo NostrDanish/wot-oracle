@@ -29,18 +29,32 @@ def get_follows(pubkey):
     ws.close(); return follows
 
 def wot_score(pubkey, trusted, follows_map):
-    f = follows_map.get(pubkey, set())
-    return len(f & trusted) / max(len(trusted),1)
+    """Fraction of trusted seed accounts that follow this candidate pubkey."""
+    if not trusted:
+        return 0.0
+    trusted_followers = sum(
+        1 for seed in trusted
+        if pubkey in follows_map.get(seed, set())
+    )
+    return trusted_followers / len(trusted)
+
+
+def score_candidates(trusted, follows_map):
+    """Score followed candidates and return a deterministic highest-first map."""
+    candidates = set().union(*follows_map.values()) if follows_map else set()
+    scored = {
+        candidate: round(wot_score(candidate, trusted, follows_map), 3)
+        for candidate in candidates
+    }
+    return dict(sorted(scored.items(), key=lambda item: (-item[1], item[0])))
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--seeds", nargs="+", required=True)
     a = ap.parse_args()
     trusted = set(a.seeds)
     fm = {s: get_follows(s) for s in a.seeds}
-    # score the union of all followed keys
-    candidates = set().union(*fm.values())
-    scored = {c: round(wot_score(c, trusted, fm),3) for c in candidates}
-    scored = dict(sorted(scored.items(), key=lambda x:-x[1]))
+    # Score the union of followed keys by the fraction of seed accounts that follow each candidate.
+    scored = score_candidates(trusted, fm)
     with open("wot_scores.json","w") as f: json.dump(scored, f, indent=2)
     print(f"[wot] scored {len(scored)} pubkeys; top: {list(scored)[:5]}")
 
